@@ -28,6 +28,8 @@ import Card from '@/client/components/card/Card.vue';
 import {CardModel} from '@/common/models/CardModel';
 import {CardOrderStorage} from '@/client/utils/CardOrderStorage';
 
+const HAND_JIVE_STORAGE_PREFIX = 'handJiveIsChecked';
+
 export default Vue.extend({
   name: 'SortableCards',
   components: {
@@ -58,8 +60,17 @@ export default Vue.extend({
         cardOrder[card.name] = max++;
       }
     }
+    let handJiveIsChecked = false;
+    try {
+      const stored = typeof localStorage === 'undefined' ? null : localStorage.getItem(`${HAND_JIVE_STORAGE_PREFIX}${this.playerId}`);
+      if (stored !== null) {
+        handJiveIsChecked = JSON.parse(stored);
+      }
+    } catch (err) {
+      console.warn('unable to pull hand jive state from local storage', err);
+    }
     return {
-      handJiveIsChecked: false,
+      handJiveIsChecked,
       handJiveCardStyle: Object.freeze({
         pointerEvents: 'none',
       }),
@@ -129,6 +140,16 @@ export default Vue.extend({
             }
           }
         }
+      }
+    },
+  },
+  watch: {
+    handJiveIsChecked(value: boolean) {
+      try {
+        if (typeof localStorage === 'undefined') return;
+        localStorage.setItem(`${HAND_JIVE_STORAGE_PREFIX}${this.playerId}`, JSON.stringify(value));
+      } catch (err) {
+        console.warn('unable to update hand jive state in local storage', err);
       }
     },
   },

@@ -30,7 +30,7 @@ import Vue from 'vue';
 import * as constants from '@/common/constants';
 import * as raw_settings from '@/genfiles/settings.json';
 import {vueRoot} from '@/client/components/vueRoot';
-import {PlayerInputModel} from '@/common/models/PlayerInputModel';
+import {PlayerInputModel, TimeWarpSelectionsModel} from '@/common/models/PlayerInputModel';
 import {playerColorClass} from '@/common/utils/utils';
 import {PublicPlayerModel, PlayerViewModel} from '@/common/models/PlayerModel';
 import {getPreferences} from '@/client/utils/PreferencesManager';
@@ -79,6 +79,39 @@ export default Vue.extend({
     };
   },
   methods: {
+    hasTimeWarpSelections(input: PlayerInputModel | undefined): input is PlayerInputModel & {timeWarpSelections: TimeWarpSelectionsModel} {
+      return input !== undefined && input.timeWarpSelections !== undefined;
+    },
+    timeWarpSelectionsKey(selections: TimeWarpSelectionsModel): string {
+      const selectionsRecord = selections as Record<string, unknown> & {id?: unknown; queueId?: unknown; key?: unknown};
+      const preferredKeys: Array<keyof typeof selectionsRecord> = ['key', 'queueId', 'id'];
+      for (const candidate of preferredKeys) {
+        const value = selectionsRecord[candidate];
+        if (typeof value === 'string' || typeof value === 'number') {
+          return String(value);
+        }
+      }
+      try {
+        return JSON.stringify(selectionsRecord);
+      } catch (err) {
+        console.warn('Unable to derive time warp selections key', err);
+        return '';
+      }
+    },
+    mergeTimeWarpSelections(playerView: PlayerViewModel | undefined): PlayerViewModel | undefined {
+      if (playerView === undefined) {
+        return playerView;
+      }
+      const currentInput = this.waitingfor;
+      const nextInput = playerView.waitingFor;
+      if (!this.hasTimeWarpSelections(currentInput) || !this.hasTimeWarpSelections(nextInput)) {
+        return playerView;
+      }
+      if (this.timeWarpSelectionsKey(currentInput.timeWarpSelections) === this.timeWarpSelectionsKey(nextInput.timeWarpSelections)) {
+        playerView.waitingFor = currentInput;
+      }
+      return playerView;
+    },
     animateTitle() {
       const sequence = '\u25D1\u25D2\u25D0\u25D3';
       const first = document.title[0];
@@ -148,18 +181,19 @@ export default Vue.extend({
       root.isServerSideRequestInProgress = false;
     },
     updatePlayerView(playerView: PlayerViewModel | undefined) {
+      const mergedPlayerView = this.mergeTimeWarpSelections(playerView);
       if (this.suspend === false) {
         const root = vueRoot(this);
         root.screen = 'empty';
-        root.playerView = playerView;
+        root.playerView = mergedPlayerView;
         root.playerkey++;
         root.screen = 'player-home';
-        if (this.playerView.game.phase === 'end' && window.location.pathname !== paths.THE_END) {
+        if (mergedPlayerView !== undefined && mergedPlayerView.game.phase === 'end' && window.location.pathname !== paths.THE_END) {
           window.location = window.location as any as (string & Location); // eslint-disable-line no-self-assign
         }
         this.savedPlayerView = undefined;
       } else {
-        this.savedPlayerView = playerView;
+        this.savedPlayerView = mergedPlayerView;
       }
     },
     waitForUpdate() {

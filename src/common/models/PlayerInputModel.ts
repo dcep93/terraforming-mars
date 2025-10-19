@@ -12,10 +12,13 @@ import {Warning} from '../cards/Warning';
 import {Units} from '../Units';
 import {ClaimedToken} from '../underworld/UnderworldPlayerData';
 
+export type TimeWarpSelectionsModel = Record<string, unknown>;
+
 export type BaseInputModel = {
   title: string | Message;
   warning?: string | Message;
   buttonLabel: string;
+  timeWarpSelections?: TimeWarpSelectionsModel;
 }
 
 export type AndOptionsModel = BaseInputModel & {
